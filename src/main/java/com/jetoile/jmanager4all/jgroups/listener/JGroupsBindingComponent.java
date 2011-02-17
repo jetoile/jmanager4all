@@ -41,58 +41,50 @@ import com.jetoile.jmanager4all.pojo.JManagerConnector;
  */
 public class JGroupsBindingComponent extends ReceiverAdapter implements JManagerBindingComponent {
 
-	static final private Logger LOGGER = LoggerFactory.getLogger(JGroupsBindingComponent.class);
+    static final private Logger LOGGER = LoggerFactory.getLogger(JGroupsBindingComponent.class);
 
-	private RpcDispatcher rpcDispatcher;
-	private Channel publicChannel;
-	private Channel privateChannel;
+    private RpcDispatcher rpcDispatcher;
+    private Channel channel;
 
-	private boolean isServer = true;
+    private boolean isServer = true;
 
-	final private JManagerConnector jmanagerConnector;
+    final private JManagerConnector jmanagerConnector;
 
-	public JGroupsBindingComponent(final JManagerConnector jmanagerConnector, final boolean isServer) {
-		this.isServer = isServer;
-		this.jmanagerConnector = jmanagerConnector;
-	}
+    public JGroupsBindingComponent(final JManagerConnector jmanagerConnector, final boolean isServer) {
+        this.isServer = isServer;
+        this.jmanagerConnector = jmanagerConnector;
+    }
 
-	@Override
-	public void start() {
-		try {
-			// start a private channel to response for its jmxConnectorStub
-			this.privateChannel = new JChannel("default-udp.xml");
+    @Override
+    public void start() {
+        try {
+            // start a private channel to response for its jmxConnectorStub
+            this.channel = new JChannel("default-udp.xml");
 
-			if (isServer) {
-				final JGroupsChangeSetListener changeSetListener = new JGroupsChangeSetListener(privateChannel);
-				rpcDispatcher = new RpcDispatcher(this.privateChannel, null, changeSetListener, this);
-				changeSetListener.setRpcDispatcher(rpcDispatcher);
-			} else {
-				rpcDispatcher = new RpcDispatcher(this.privateChannel, null, null, this);
-			}
-			this.privateChannel.connect("privateJMXChannel");
-			JManagerAddress privateAddress = new JManagerAddress(this.privateChannel.getAddress().toString());
-			this.jmanagerConnector.setLocation(privateAddress);
+            if (isServer) {
+                final JGroupsChangeSetListener changeSetListener = new JGroupsChangeSetListener(channel);
+                rpcDispatcher = new RpcDispatcher(this.channel, null, changeSetListener, this);
+                changeSetListener.setRpcDispatcher(rpcDispatcher);
+            } else {
+                rpcDispatcher = new RpcDispatcher(this.channel, null, null, this);
+            }
+            this.channel.connect("privateJMXChannel");
+            JManagerAddress privateAddress = new JManagerAddress(this.channel.getAddress().toString());
+            this.jmanagerConnector.setLocation(privateAddress);
+        } catch (ChannelException e) {
+            LOGGER.error("cannot create channel: {}", e);
+        }
 
-			this.publicChannel = new JChannel("default-udp.xml");
-			if (!this.publicChannel.isConnected()) {
-				this.publicChannel.setReceiver(this);
-				this.publicChannel.connect("publicJMXChannel");
-			}
-		} catch (ChannelException e) {
-			LOGGER.error("cannot create channel: {}", e);
-		}
+    }
 
-	}
+    @Override
+    public void stop() {
+        this.channel.close();
+    }
 
-	@Override
-	public void stop() {
-		this.privateChannel.close();
-		this.publicChannel.close();
-	}
-
-	@Override
-	public JManagerConnector getStubConnector() {
-		return this.jmanagerConnector;
-	}
+    @Override
+    public JManagerConnector getStubConnector() {
+        return this.jmanagerConnector;
+    }
 
 }
