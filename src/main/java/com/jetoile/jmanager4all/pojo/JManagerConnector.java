@@ -32,61 +32,61 @@ import javax.management.remote.JMXConnector;
  * 
  */
 public class JManagerConnector implements Serializable {
-	private JManagerAddress location;
-	private JMXConnector connector;
+    private JManagerAddress location;
+    private JMXConnector connector;
 
-	public JManagerConnector() {
-	}
+    public JManagerConnector() {
+    }
 
-	public JManagerAddress getLocation() {
-		return location;
-	}
+    public JManagerAddress getLocation() {
+        return location;
+    }
 
-	public void setLocation(JManagerAddress location) {
-		this.location = location;
-	}
+    public void setLocation(final JManagerAddress location) {
+        this.location = location;
+    }
 
-	public JMXConnector getConnector() {
-		return connector;
-	}
+    public JMXConnector getConnector() {
+        return connector;
+    }
 
-	public void setConnector(JMXConnector connector) {
-		this.connector = connector;
-	}
+    public void setConnector(final JMXConnector connector) {
+        this.connector = connector;
+    }
 
-	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((location == null) ? 0 : location.hashCode());
-		result = prime * result + ((connector == null) ? 0 : connector.hashCode());
-		return result;
-	}
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((location == null) ? 0 : location.hashCode());
+        result = prime * result + ((connector == null) ? 0 : connector.hashCode());
+        return result;
+    }
 
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		JManagerConnector other = (JManagerConnector) obj;
-		if (location == null) {
-			if (other.location != null)
-				return false;
-		} else if (!location.equals(other.location))
-			return false;
-		if (connector == null) {
-			if (other.connector != null)
-				return false;
-		} else if (!connector.equals(other.connector))
-			return false;
-		return true;
-	}
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        JManagerConnector other = (JManagerConnector) obj;
+        if (location == null) {
+            if (other.location != null)
+                return false;
+        } else if (!location.equals(other.location))
+            return false;
+        if (connector == null) {
+            if (other.connector != null)
+                return false;
+        } else if (!connector.equals(other.connector))
+            return false;
+        return true;
+    }
 
-	@Override
-	public String toString() {
-		return "Connector [location=" + location + ", connector=" + connector + "]";
-	}
+    @Override
+    public String toString() {
+        return "Connector [location=" + location + ", connector=" + connector + "]";
+    }
 }

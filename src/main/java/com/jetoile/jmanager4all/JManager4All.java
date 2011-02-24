@@ -41,6 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.jetoile.jmanager4all.jgroups.listener.JGroupsBindingComponent;
+import com.jetoile.jmanager4all.jmx.JMXConnectorStubCache;
 import com.jetoile.jmanager4all.pojo.JManagerConnector;
 
 /**
@@ -49,96 +50,98 @@ import com.jetoile.jmanager4all.pojo.JManagerConnector;
  */
 public class JManager4All {
 
-	final static private Logger LOGGER = LoggerFactory.getLogger(JManager4All.class);
+    final static private Logger LOGGER = LoggerFactory.getLogger(JManager4All.class);
 
-	// private static final int STATE_TIMEOUT = 500;
-	private static final String CONNECTOR_PROTOCOL = "rmi";
+    // private static final int STATE_TIMEOUT = 500;
+    private static final String CONNECTOR_PROTOCOL = "rmi";
 
-	private boolean isServer = true;
-	private JMXConnectorServer jmxConnector;
-	private JMXServiceURL jmxServiceUrl;
-	final private JManagerConnector jmanagerConnector = new JManagerConnector();
-	private final MBeanServer mBeanServer;
+    private boolean isServer = true;
+    private JMXConnectorServer jmxConnector;
+    private JMXServiceURL jmxServiceUrl;
+    final private JManagerConnector jmanagerConnector = new JManagerConnector();
+    private final MBeanServer mBeanServer;
+    final private JMXConnectorStubCache connectorsStub = new JMXConnectorStubCache();
 
-	private JManagerBindingComponent jmanagerBindingComponent;
+    private JManagerBindingComponent jmanagerBindingComponent;
 
-	public JManager4All(final int port) {
-		try {
-			this.jmxServiceUrl = new JMXServiceURL(CONNECTOR_PROTOCOL, null, port);
-		} catch (MalformedURLException e) {
-			LOGGER.error("unable to create JMXServiceURL: {}", e);
-		}
-		this.mBeanServer = ManagementFactory.getPlatformMBeanServer();
-		init();
-	}
+    public JManager4All(final int port) {
+        try {
+            this.jmxServiceUrl = new JMXServiceURL(CONNECTOR_PROTOCOL, null, port);
+        } catch (MalformedURLException e) {
+            LOGGER.error("unable to create JMXServiceURL: {}", e);
+        }
+        this.mBeanServer = ManagementFactory.getPlatformMBeanServer();
+        init();
+    }
 
-	public JManager4All(final int port, final boolean isServer) {
-		this.isServer = isServer;
-		try {
-			this.jmxServiceUrl = new JMXServiceURL(CONNECTOR_PROTOCOL, null, port);
-		} catch (MalformedURLException e) {
-			LOGGER.error("unable to create JMXServiceURL: {}", e);
-		}
-		this.mBeanServer = ManagementFactory.getPlatformMBeanServer();
-		init();
-	}
+    public JManager4All(final int port, final boolean isServer) {
+        this.isServer = isServer;
+        try {
+            this.jmxServiceUrl = new JMXServiceURL(CONNECTOR_PROTOCOL, null, port);
+        } catch (MalformedURLException e) {
+            LOGGER.error("unable to create JMXServiceURL: {}", e);
+        }
+        this.mBeanServer = ManagementFactory.getPlatformMBeanServer();
+        init();
+    }
 
-	private void init() {
-		try {
-			this.jmxConnector = JMXConnectorServerFactory.newJMXConnectorServer(this.jmxServiceUrl, null, mBeanServer);
-			this.jmxConnector.start();
+    private void init() {
+        try {
+            this.jmxConnector = JMXConnectorServerFactory.newJMXConnectorServer(this.jmxServiceUrl, null, mBeanServer);
+            this.jmxConnector.start();
 
-			final ObjectName objectName = new ObjectName(":type=csserver, name=csserver");
-			mBeanServer.registerMBean(this.jmxConnector, objectName);
-			this.jmanagerConnector.setConnector(this.jmxConnector.toJMXConnector(null));
+            final ObjectName objectName = new ObjectName(":type=csserver, name=csserver");
+            mBeanServer.registerMBean(this.jmxConnector, objectName);
+            this.jmanagerConnector.setConnector(this.jmxConnector.toJMXConnector(null));
 
-			this.jmanagerBindingComponent = new JGroupsBindingComponent(this.jmanagerConnector, isServer);
-		} catch (IOException e) {
-			LOGGER.error("unable to init: {}", e);
-		} catch (MalformedObjectNameException e) {
-			LOGGER.error("unable to init: {}", e);
-		} catch (NullPointerException e) {
-			LOGGER.error("unable to init: {}", e);
-		} catch (InstanceAlreadyExistsException e) {
-			LOGGER.error("unable to init: {}", e);
-		} catch (MBeanRegistrationException e) {
-			LOGGER.error("unable to init: {}", e);
-		} catch (NotCompliantMBeanException e) {
-			LOGGER.error("unable to init: {}", e);
-		}
-	}
+            this.jmanagerBindingComponent = new JGroupsBindingComponent(this.jmanagerConnector, isServer);
+            ((JGroupsBindingComponent) this.jmanagerBindingComponent).setConnectorsStub(this.connectorsStub);
+        } catch (IOException e) {
+            LOGGER.error("unable to init: {}", e);
+        } catch (MalformedObjectNameException e) {
+            LOGGER.error("unable to init: {}", e);
+        } catch (NullPointerException e) {
+            LOGGER.error("unable to init: {}", e);
+        } catch (InstanceAlreadyExistsException e) {
+            LOGGER.error("unable to init: {}", e);
+        } catch (MBeanRegistrationException e) {
+            LOGGER.error("unable to init: {}", e);
+        } catch (NotCompliantMBeanException e) {
+            LOGGER.error("unable to init: {}", e);
+        }
+    }
 
-	public void stop() throws IOException {
-		this.jmxConnector.stop();
-		this.jmanagerBindingComponent.stop();
-	}
+    public void stop() throws IOException {
+        this.jmxConnector.stop();
+        this.jmanagerBindingComponent.stop();
+    }
 
-	public void start() {
-		this.jmanagerBindingComponent.start();
-	}
+    public void start() {
+        this.jmanagerBindingComponent.start();
+    }
 
-	public JManagerConnector getStubConnector() {
-		return this.jmanagerConnector;
-	}
+    public JManagerConnector getStubConnector() {
+        return this.jmanagerConnector;
+    }
 
-	// @Override
-	// public byte[] getState() {
-	// try {
-	// return Util.objectToByteBuffer(this.connector);
-	// } catch (Exception e) {
-	// LOGGER.error("getState error", e);
-	// }
-	// return null;
-	// }
-	//
-	// @Override
-	// public void setState(byte[] state) {
-	// try {
-	// Connector connector = (Connector)Util.objectFromByteBuffer(state);
-	// connectorsStub.put(connector.getPrivateAddress(),
-	// connector.getConnector());
-	// } catch (Exception e) {
-	// LOGGER.error("setState error", e);
-	// }
-	// }
+    // @Override
+    // public byte[] getState() {
+    // try {
+    // return Util.objectToByteBuffer(this.connector);
+    // } catch (Exception e) {
+    // LOGGER.error("getState error", e);
+    // }
+    // return null;
+    // }
+    //
+    // @Override
+    // public void setState(byte[] state) {
+    // try {
+    // Connector connector = (Connector)Util.objectFromByteBuffer(state);
+    // connectorsStub.put(connector.getPrivateAddress(),
+    // connector.getConnector());
+    // } catch (Exception e) {
+    // LOGGER.error("setState error", e);
+    // }
+    // }
 }

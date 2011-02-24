@@ -48,97 +48,105 @@ import com.jetoile.jmanager4all.pojo.JManagerConnector;
  */
 public class JGroupsChangeSetListener implements MembershipListener {
 
-	final static private Logger LOGGER = LoggerFactory.getLogger(JGroupsChangeSetListener.class);
+    final static private Logger LOGGER = LoggerFactory.getLogger(JGroupsChangeSetListener.class);
 
-	final private JMXConnectorStubCache connectorsStub = new JMXConnectorStubCache();
+    // final private JMXConnectorStubCache connectorsStub = new JMXConnectorStubCache();
+    final private JMXConnectorStubCache connectorsStub;
 
-	final private Channel privateChannel;
+    final private Channel privateChannel;
 
-	private RpcDispatcher rpcDispatcher;
+    private RpcDispatcher rpcDispatcher;
 
-	public JGroupsChangeSetListener(final Channel privateChannel) {
-		this.privateChannel = privateChannel;
-	}
+    public JGroupsChangeSetListener(final Channel privateChannel, final JMXConnectorStubCache connectorsStub) {
+        this.connectorsStub = connectorsStub;
+        this.privateChannel = privateChannel;
+    }
 
-	public void setRpcDispatcher(RpcDispatcher rpcDispatcher) {
-		this.rpcDispatcher = rpcDispatcher;
-	}
+    public void setRpcDispatcher(RpcDispatcher rpcDispatcher) {
+        this.rpcDispatcher = rpcDispatcher;
+    }
 
-	@Override
-	synchronized public void viewAccepted(View new_view) {
-		// when a new member is up
-		List<Address> newAddresses = getNewAddresses(new_view.getMembers());
+    @Override
+    synchronized public void viewAccepted(View new_view) {
+        if (this.connectorsStub != null) {
+            // when a new member is up
+            List<Address> newAddresses = getNewAddresses(new_view.getMembers());
 
-		newAddresses.remove(privateChannel.getAddress());
+            newAddresses.remove(privateChannel.getAddress());
 
-		List<Address> ads = new ArrayList<Address>();
-		for (Address ad : newAddresses) {
-			if (!connectorsStub.containsKey(new JManagerAddress(ad.toString()))) {
-				ads.add(ad);
-			}
-		}
+            List<Address> ads = new ArrayList<Address>();
+            for (Address ad : newAddresses) {
+                if (!connectorsStub.containsKey(new JManagerAddress(ad.toString()))) {
+                    ads.add(ad);
+                }
+            }
 
-		if (!ads.isEmpty()) {
+            if (!ads.isEmpty()) {
 
-			MethodCall methodCall = new MethodCall("getStubConnector", new Object[] {}, new Class[] {});
-			LOGGER.debug("invoke remote getStubConnector on: {}", ads);
+                MethodCall methodCall = new MethodCall("getStubConnector", new Object[] {}, new Class[] {});
+                LOGGER.debug("invoke remote getStubConnector on: {}", ads);
 
-			// RequestOptions requestOption = new RequestOptions();
-			RspList resps = rpcDispatcher.callRemoteMethods(ads, methodCall, RequestOptions.SYNC);
-			LOGGER.debug("after invoke getStubConnector - nb result {}", resps.numReceived());
+                // RequestOptions requestOption = new RequestOptions();
+                RspList resps = rpcDispatcher.callRemoteMethods(ads, methodCall, RequestOptions.SYNC);
+                LOGGER.debug("after invoke getStubConnector - nb result {}", resps.numReceived());
 
-			if (resps.numReceived() == 0) {
-				LOGGER.debug("retry...");
-				resps = rpcDispatcher.callRemoteMethods(ads, methodCall, RequestOptions.SYNC);
-			}
+                if (resps.numReceived() == 0) {
+                    LOGGER.debug("retry...");
+                    resps = rpcDispatcher.callRemoteMethods(ads, methodCall, RequestOptions.SYNC);
+                }
 
-			for (Object resp : resps.getResults()) {
-				JManagerConnector connector = (JManagerConnector) resp;
-				LOGGER.debug("new jmxConnector: {}", connector);
-				JManagerAddress privateAddress = new JManagerAddress(connector.getLocation().toString());
-				connectorsStub.put(privateAddress, connector.getConnector());
-			}
-		}
+                for (Object resp : resps.getResults()) {
+                    JManagerConnector connector = (JManagerConnector) resp;
+                    LOGGER.debug("new jmxConnector: {}", connector);
+                    JManagerAddress privateAddress = new JManagerAddress(connector.getLocation().toString());
+                    connectorsStub.put(privateAddress, connector.getConnector());
+                }
+            }
 
-		List<JManagerAddress> members = new ArrayList<JManagerAddress>();
-		for (Address member : new_view.getMembers()) {
-			members.add(new JManagerAddress(member.toString()));
-		}
-		List<JManagerAddress> olds = getObsoleteAddresses(members);
-		for (JManagerAddress old : olds) {
-			LOGGER.debug("remove jmxConnector: {}", old);
-			connectorsStub.remove(new JManagerAddress(old.toString()));
-		}
-	}
+            List<JManagerAddress> members = new ArrayList<JManagerAddress>();
+            for (Address member : new_view.getMembers()) {
+                members.add(new JManagerAddress(member.toString()));
+            }
+            List<JManagerAddress> olds = getObsoleteAddresses(members);
+            for (JManagerAddress old : olds) {
+                LOGGER.debug("remove jmxConnector: {}", old);
+                connectorsStub.remove(new JManagerAddress(old.toString()));
+            }
+        }
+    }
 
-	@Override
-	public void suspect(Address suspected_mbr) {
-		// NOTHING TO DO
-	}
+    @Override
+    public void suspect(Address suspected_mbr) {
+        // NOTHING TO DO
+    }
 
-	@Override
-	public void block() {
-		// NOTHING TO DO
-	}
+    @Override
+    public void block() {
+        // NOTHING TO DO
+    }
 
-	List<Address> getNewAddresses(Vector<Address> newMembers) {
-		List<Address> result = new ArrayList<Address>();
-		for (Address address : newMembers) {
-			if (!this.connectorsStub.containsKey(new JManagerAddress(address.toString()))) {
-				result.add(address);
-			}
-		}
-		return result;
-	}
+    List<Address> getNewAddresses(Vector<Address> newMembers) {
+        List<Address> result = new ArrayList<Address>();
+        if (this.connectorsStub != null) {
+            for (Address address : newMembers) {
+                if (!this.connectorsStub.containsKey(new JManagerAddress(address.toString()))) {
+                    result.add(address);
+                }
+            }
+        }
+        return result;
+    }
 
-	List<JManagerAddress> getObsoleteAddresses(List<JManagerAddress> newMembers) {
-		List<JManagerAddress> result = new ArrayList<JManagerAddress>();
-		for (JManagerAddress address : this.connectorsStub.keySet()) {
-			if (!newMembers.contains(address)) {
-				result.add(address);
-			}
-		}
-		return result;
-	}
+    List<JManagerAddress> getObsoleteAddresses(List<JManagerAddress> newMembers) {
+        List<JManagerAddress> result = new ArrayList<JManagerAddress>();
+        if (this.connectorsStub != null) {
+            for (JManagerAddress address : this.connectorsStub.keySet()) {
+                if (!newMembers.contains(address)) {
+                    result.add(address);
+                }
+            }
+        }
+        return result;
+    }
 
 }

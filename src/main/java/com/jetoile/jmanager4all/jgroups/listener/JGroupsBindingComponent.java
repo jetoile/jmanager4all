@@ -32,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.jetoile.jmanager4all.JManagerBindingComponent;
+import com.jetoile.jmanager4all.jmx.JMXConnectorStubCache;
 import com.jetoile.jmanager4all.pojo.JManagerAddress;
 import com.jetoile.jmanager4all.pojo.JManagerConnector;
 
@@ -50,29 +51,39 @@ public class JGroupsBindingComponent extends ReceiverAdapter implements JManager
 
     final private JManagerConnector jmanagerConnector;
 
+    private JMXConnectorStubCache connectorsStub = null;
+
     public JGroupsBindingComponent(final JManagerConnector jmanagerConnector, final boolean isServer) {
         this.isServer = isServer;
         this.jmanagerConnector = jmanagerConnector;
     }
 
+    public void setConnectorsStub(JMXConnectorStubCache connectorsStub) {
+        this.connectorsStub = connectorsStub;
+    }
+
     @Override
     public void start() {
-        try {
-            // start a private channel to response for its jmxConnectorStub
-            this.channel = new JChannel("default-udp.xml");
+        if (this.connectorsStub != null) {
+            try {
+                // start a private channel to response for its jmxConnectorStub
+                this.channel = new JChannel("default-udp.xml");
 
-            if (isServer) {
-                final JGroupsChangeSetListener changeSetListener = new JGroupsChangeSetListener(channel);
-                rpcDispatcher = new RpcDispatcher(this.channel, null, changeSetListener, this);
-                changeSetListener.setRpcDispatcher(rpcDispatcher);
-            } else {
-                rpcDispatcher = new RpcDispatcher(this.channel, null, null, this);
+                if (isServer) {
+                    final JGroupsChangeSetListener changeSetListener = new JGroupsChangeSetListener(channel, this.connectorsStub);
+                    rpcDispatcher = new RpcDispatcher(this.channel, null, changeSetListener, this);
+                    changeSetListener.setRpcDispatcher(rpcDispatcher);
+                } else {
+                    rpcDispatcher = new RpcDispatcher(this.channel, null, null, this);
+                }
+                this.channel.connect("privateJMXChannel");
+                JManagerAddress privateAddress = new JManagerAddress(this.channel.getAddress().toString());
+                this.jmanagerConnector.setLocation(privateAddress);
+            } catch (ChannelException e) {
+                LOGGER.error("cannot create channel: {}", e);
             }
-            this.channel.connect("privateJMXChannel");
-            JManagerAddress privateAddress = new JManagerAddress(this.channel.getAddress().toString());
-            this.jmanagerConnector.setLocation(privateAddress);
-        } catch (ChannelException e) {
-            LOGGER.error("cannot create channel: {}", e);
+        } else {
+            LOGGER.warn("connectorsStub should be set");
         }
 
     }
